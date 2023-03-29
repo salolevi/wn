@@ -1,6 +1,11 @@
 import fme
 import fmeobjects
 import re
+import datetime
+import time
+
+def unixTimeNow(dt):
+    
 
 def checkQuotes(s):
     s = s.replace('"', '')
