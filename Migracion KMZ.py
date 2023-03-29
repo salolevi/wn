@@ -94,12 +94,12 @@ class FeatureProcessor(object):
             self.styleMapList.append(feature)
 
     def close(self):
-        ffo = open(r"C:\Users\Salo\WN\fo" + ".txt","w")
-        ffocfg = open(r"C:\Users\Salo\WN\ocfg" + ".txt","w")
-        ffval = open(r"C:\Users\Salo\WN\val" + ".txt","w")
-        ffsidx = open(r"C:\Users\Salo\WN\sidx" + ".txt","w")
-        ffv = open(r"C:\Users\Salo\WN\v"+ ".txt","w")
-        ffgeoidx = open(r"C:\Users\Salo\WN\geoidx" + ".txt","w")
+        ffo = open(r"C:\Users\user\WN\fo" + ".txt","w")
+        ffocfg = open(r"C:\Users\user\WN\ocfg" + ".txt","w")
+        ffval = open(r"C:\Users\user\WN\val" + ".txt","w")
+        ffsidx = open(r"C:\Users\user\WN\sidx" + ".txt","w")
+        ffv = open(r"C:\Users\user\WN\v"+ ".txt","w")
+        ffgeoidx = open(r"C:\Users\user\WN\geoidx" + ".txt","w")
         companyId = "11"
         id = 0
         logs = "1679577251..1."
