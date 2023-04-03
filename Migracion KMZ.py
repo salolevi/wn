@@ -3,9 +3,17 @@ import fmeobjects
 import re
 import datetime
 import time
+from scipy.spatial.distance import cdist
 
 def unixTimeNow(dt):
     return int(time.mktime(dt.timetuple()))
+
+def isPoint(feat):
+    return feat.getAttribute("fme_type") == "fme_point"
+
+def isLine(feat):
+    return feat.getAttribute("fme_type") == "fme_line"
+    
 
 def checkQuotes(s):
     s = s.replace('"', '')
@@ -14,6 +22,30 @@ def checkQuotes(s):
     s = s.replace(":", "")
     s = s.replace("|", " ")
     return s
+
+def connectCO(self, key, other_key, n1, n2):
+    self.ffco.write(f'SADD {key}:co "{self.logs}:{n1}|{other_key}|{n2}"\n')
+    self.ffco.write(f'SADD {other_key}:co "{self.logs}:{n2}|{key}|{n1}"\n')
+
+def get_logs():
+    now = datetime.now()  # ahora
+    unixtime = int(time.mktime(now.timetuple()))
+    return f'{unixtime}..1.'
+
+def getClosest(feature, featureList):
+    MAX_RANGE = 0.1
+    featCoord = (feature.getAllCoordinates()[0], feature.getAllCoordinates()[1])
+    minimums = []
+    for feat in featureList:
+        if feat is feature:
+            continue
+        coordinates = list(map(lambda x : (x[0], x[1]) ,feat.getAllCoordinates()))
+        distances = list(map(lambda x : cdist([featCoord], [x], 'euclidean')[0][0], coordinates))
+        for distance in distances:
+            if distance <= MAX_RANGE:
+                minimums.append([feat.getAttribute("kml_name"), distance])
+
+    print(minimums)
 
 # network types: 1 == troncal, 2 == distribucion, 3 == clientes, 4 == infraestructura, 5 == areas de zonas
 def getOcfg1(fType, fFolder):
@@ -99,12 +131,13 @@ class FeatureProcessor(object):
             self.styleMapList.append(feature)
 
     def close(self):
-        ffo = open(r"C:\Users\Salo\WN\fo" + ".txt","w")
+        fo = open(r"C:\Users\Salo\WN\o" + ".txt","w")
         ffocfg = open(r"C:\Users\Salo\WN\ocfg" + ".txt","w")
         ffval = open(r"C:\Users\Salo\WN\val" + ".txt","w")
         ffsidx = open(r"C:\Users\Salo\WN\sidx" + ".txt","w")
         ffv = open(r"C:\Users\Salo\WN\v"+ ".txt","w")
         ffgeoidx = open(r"C:\Users\Salo\WN\geoidx" + ".txt","w")
+        ffco = open(r"C:\Users\Salo\WN\co" + ".txt","w")
         companyId = "11"
         id = 0
         unixtime = unixTimeNow(datetime.datetime.now())
@@ -112,6 +145,7 @@ class FeatureProcessor(object):
         # print(self.folderList)
                 
         for feature in self.featureList:
+            print(feature.getAllCoordinates())
             # A - store kml folders in @folder
             if (feature.getAttribute("fme_feature_type") == "Placemark"):
                 parent = feature.getAttribute("kml_parent")
@@ -147,7 +181,7 @@ class FeatureProcessor(object):
                     # E - write files    
                     id = id + 1
                     strId = "%s.%s.%d"%(companyId, ocfg[2], id)
-                    ffo.write("SET " + strId + " \"" + logs + "\"\n")                                    # SET 10.1.1 "0..1."
+                    fo.write("SET " + strId + " \"" + logs + "\"\n")                                    # SET 10.1.1 "0..1."
                     ffocfg.write("SADD " + strId + ":ocfg \"" + logs + ":" + ocfg[0] + "\"\n")           # SADD 10.1.1:ocfg "0..1.:a/cgc/a"
                 
                     # write values
@@ -184,7 +218,7 @@ class FeatureProcessor(object):
                     
                 print(ss)
         
-        ffo.close()
+        fo.close()
         ffocfg.close()
         ffval.close()
         ffsidx.close()
