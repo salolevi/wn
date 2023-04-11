@@ -3,7 +3,7 @@ import fmeobjects
 import re
 import datetime
 import time
-from scipy.spatial.distance import cdist
+# from scipy.spatial.distance import cdist
 
 def unixTimeNow(dt):
     return int(time.mktime(dt.timetuple()))
@@ -32,56 +32,89 @@ def get_logs():
     unixtime = int(time.mktime(now.timetuple()))
     return f'{unixtime}..1.'
 
-def getClosest(feature, featureList):
-    MAX_RANGE = 0.1
-    featCoord = (feature.getAllCoordinates()[0], feature.getAllCoordinates()[1])
-    minimums = []
-    for feat in featureList:
-        if feat is feature:
-            continue
-        coordinates = list(map(lambda x : (x[0], x[1]) ,feat.getAllCoordinates()))
-        distances = list(map(lambda x : cdist([featCoord], [x], 'euclidean')[0][0], coordinates))
-        for distance in distances:
-            if distance <= MAX_RANGE:
-                minimums.append([feat.getAttribute("kml_name"), distance])
+# def getClosest(feature, featureList):
+#     MAX_RANGE = 0.1
+#     featCoord = (feature.getAllCoordinates()[0], feature.getAllCoordinates()[1])
+#     minimums = []
+#     for feat in featureList:
+#         if feat is feature:
+#             continue
+#         coordinates = list(map(lambda x : (x[0], x[1]) ,feat.getAllCoordinates()))
+#         distances = list(map(lambda x : cdist([featCoord], [x], 'euclidean')[0][0], coordinates))
+#         for distance in distances:
+#             if distance <= MAX_RANGE:
+#                 minimums.append([feat.getAttribute("kml_name"), distance])
 
-    print(minimums)
+#     print(minimums)
 
 # network types: 1 == troncal, 2 == distribucion, 3 == clientes, 4 == infraestructura, 5 == areas de zonas
-def getOcfg1(fType, fFolder):
+def getOcfg1(fName, fType, fFolder):
     ocfg1 = {  
-                "NAP1N" : ["go/fo/cie", "2N1", "1"],
-                "NAP1NLL": ["go/fo/cie", "2N1", "1"],
-                "NAP2N" : ["go/fo/cie", "2N2", "1"],
-                "NAP16LL" : ["go/fo/cie", "2N2", "1"],
-                "NAP16NOI" : ["go/fo/cie", "2N2", "1"],
-                "NODO" : ["go/fo/cie", "NODO", "1"],
-                "METRO" : ["go/fo/cie", "CM", "1"], 
-                "BOTELLA" : ["go/fo/cie", "1N", "1"],
+                "NAP1N" : ["go/fo/cie", "2N1", "2"],
+                "NAP1NLL": ["go/fo/cie", "2N1", "2"],
+                "NAP2N" : ["go/fo/cie", "2N2", "2"],
+                "NAP16LL" : ["go/fo/cie", "2N2", "2"],
+                "NAP16NOI" : ["go/fo/cie", "2N2", "2"],
+                "NODO" : ["go/fo/olt", "NODO", "1"],
+                "METRO" : ["go/fo/cie", "CM", "2"], 
+                "BOTELLA" : ["go/fo/cie", "BOT", "1"],
                 "NAPEM" : ["go/fo/cie", "1N", "1"],
                 "CLMAY" : ["go/fo/cli", "CLIENTE", "1"],
-                "ROSETA" : ["go/fo/cie", "ROS", "1"],
+                "ROSETA" : ["go/fo/cie", "ROS", "2"],
             }
     ocfg2 = {   
-                "4" : ["gc/fo", "4", "1"], 
-                "8" : ["gc/fo", "8", "1"], 
+                "4" : ["gc/fo", "4", "2"], 
+                "8" : ["gc/fo", "8", "2"], 
+                "12" : ["gc/fo", "12", "2"], 
+                "16" : ["gc/fo", "16", "2"], 
+                "24" : ["gc/fo", "24", "2"], 
+                "36" : ["gc/fo", "36", "2"],
+                "40" : ["gc/fo", "36", "2"],
+                "48" : ["gc/fo", "48", "2"], 
+                "Gen" : ["gc/fo", "GEN", "2"]
+            }
+    ocfg3 = {   
+                "8x1" : ["gc/fo", "8x1", "1"],
+                "8" : ["gc/fo", "8", "1"],
                 "12" : ["gc/fo", "12", "1"], 
+                "12x2" : ["gc/fo", "12x2", "1"], 
                 "16" : ["gc/fo", "16", "1"], 
                 "24" : ["gc/fo", "24", "1"], 
-                "36" : ["gc/fo", "36", "1"], 
+                "24x2" : ["gc/fo", "24x2", "1"], 
+                "36" : ["gc/fo", "36", "1"],
+                "40" : ["gc/fo", "36", "1"],
                 "48" : ["gc/fo", "48", "1"], 
-                "Gen" : ["gc/fo", "gen", "1"]
+                "64" : ["gc/fo", "64", "1"],
+                "72" : ["gc/fo", "72", "1"],
+                "96" : ["gc/fo", "96", "1"],
+                "144" : ["gc/fo", "144", "1"],
+                "256" : ["gc/fo", "256", "1"],
+                "Gen" : ["gc/fo", "GEN", "1"]
             }
     
     if fType == "fme_point":
         return ocfg1[fFolder]
 
     elif fType == "fme_line":
-        if (fFolder == "Gen"):
-            return ocfg2[fFolder]
-        pelos = re.sub("[^0-9]", "", fFolder)
-        return ocfg2[pelos]
-    
+        if fName.lower().startswith("troncal"):
+            if (fFolder == "Gen"):
+                return ocfg3[fFolder]
+            pelos = re.sub("[^0-9]", "", fFolder)
+            if pelos == "8":
+                key =  "8" if "LF" in fName else "8x1"
+            elif pelos == "12":
+                key = "12x2" if "GLC" in fName else "12"    
+            elif pelos == "24":
+                key = "24x2" if "FW" in fName else "24"
+            else:
+                key = pelos
+            return ocfg3[key]
+        else:
+            if fFolder == "Gen":
+                return ocfg2[fFolder]
+            else:
+                key = re.sub("[^0-9]", "", fFolder)
+                return ocfg2[key]
     return None
         
         
@@ -138,7 +171,7 @@ class FeatureProcessor(object):
         ffv = open(r"C:\Users\Salo\WN\v"+ ".txt","w")
         ffgeoidx = open(r"C:\Users\Salo\WN\geoidx" + ".txt","w")
         ffco = open(r"C:\Users\Salo\WN\co" + ".txt","w")
-        companyId = "11"
+        companyId = "400"
         id = 0
         unixtime = unixTimeNow(datetime.datetime.now())
         logs = "%d..1."%(unixtime)
@@ -150,31 +183,13 @@ class FeatureProcessor(object):
             if (feature.getAttribute("fme_feature_type") == "Placemark"):
                 parent = feature.getAttribute("kml_parent")
                 fFolder = getFolder(parent, self.folderList)
-                # while parentType == "Folder":
-                #     folder = getFolder(parent, self.folderList)
-                #     if folder != None:
-                #         parent = folder.getAttribute("kml_parent")
-                #         parentType = folder.getAttribute("kml_parent_type")
-                #         name = folder.getAttribute("kml_name")
-                #         fList.append(name)
-                #     else:
-                #         parentType = None
-                
-                # B - write @kmlId == kml_id, @oName == kml_name, @comm == kml_description, @oStyle == kml_style_url, @folder == fFolder
                 fFeatureType = feature.getAttribute("fme_feature_type")
                 fType = feature.getAttribute("fme_type")
                 fId = feature.getAttribute("kml_id")
                 fName = feature.getAttribute("kml_name") or "No Name"
                 fStyle = feature.getAttribute("kml_style_url").strip("#")
-                # fFolder = feature.getFolder()
                 ss = "%s|%s|%s|%s|%s|%s"%(fFeatureType, fType, fId, fName, fStyle, fFolder)
-                
-                # C - graphic styling such as @oColor == kml_iconstyle_color
-                # style = getStyle(fStyle, self.styleList, self.styleMapList)
-                        #ss = "%s - %s unknown fme_type"%(ss, fType)
-                
-                # D - define ocfg and @oType
-                ocfg = getOcfg1(fType, fFolder)
+                ocfg = getOcfg1(fName, fType, fFolder)
                 if ocfg != None:
                     ss = "%s|%s|%s|%s"%(ocfg[2], ocfg[0], ocfg[1], ss)
                     
@@ -193,7 +208,17 @@ class FeatureProcessor(object):
                     ffval.write("SADD " + strId + ":val \"" + logs + ":@oStyle|" + fStyle + "|0\"\n")
                     fFolder = checkQuotes(fFolder)
                     ffval.write("SADD " + strId + ":val \"" + logs + ":@folder|" + fFolder + "|0\"\n")
-                    ffval.write("SADD " + strId + ":val \"" + logs + ":@oType|" + ocfg[1] + "|0\"\n")
+                    if fFolder == "NAP1NLL" or fFolder == "NAP16LL":
+                        ffval.write("SADD " + strId + ":val \"" + logs + ":@nLib|" + "0" + "|0\"\n")
+                        
+                    if fFolder == "NAP16NOI":
+                        ffval.write("SADD " + strId + ":val \"" + logs + ":@notI|" + "true" + "|0\"\n")
+                        
+                    
+                    if isPoint(feature):
+                        ffval.write("SADD " + strId + ":val \"" + logs + ":@oType|" + ocfg[1] + "|0\"\n")
+                    else:
+                        ffval.write("SADD " + strId + ":val \"" + logs + ":@foType|" + ocfg[1] + "|0\"\n")
                     ffsidx.write("ZADD " + companyId + ".@oName.sidx 0 \"" + fName + ":" + logs + ":" + strId + "\"\n")       # ZADD 10.@oName.sidx 0 "CAMPO INDIO:0..1.:10.1.1"
                     ffsidx.write("ZADD " + companyId + ".@kmlId.sidx 0 \"" + fId + ":" + logs + ":" + strId + "\"\n")
                     ffsidx.write("ZADD " + companyId + ".@folder.sidx 0 \"" + fFolder + ":" + logs + ":" + strId + "\"\n")
@@ -201,18 +226,18 @@ class FeatureProcessor(object):
                     geoidxId = "GEOADD " + companyId + "." + ocfg[2] + ":geoidx "
                     
                     # write vertex
-                    if (feature.getAttribute("fme_type") == "fme_line"):
-                        n = feature.numVertices()
-                        i = 0
-                        while i < n:
-                            latlon = feature.getCoordinate(i)
-                            sLat = "%.13f"%(latlon[1])
-                            sLon = "%.13f"%(latlon[0])
-                            # SADD 10.1.1:v "0..1.:-50.7690301903|-70.7467998635|0|0"
-                            ffv.write("SADD " + strId + ":v \"" + logs + ":" + sLat + "|" + sLon + "|" + str(i) + "|0\"\n")      
-                            # GEOADD 10.1:geoidx -70.7467998635 -50.7690301903 "0..1.:10.1.1|0|9"
-                            ffgeoidx.write(geoidxId + sLon + " " + sLat + " \"" + logs + ":" + strId + "|" + str(i) + "|" + str(n) + "\"\n") 
-                            i = i + 1
+                    n = feature.numVertices()
+                    i = 0
+                    while i < n:
+                        latlon = feature.getCoordinate(i)
+                        sLat = "%.13f"%(latlon[1])
+                        sLon = "%.13f"%(latlon[0])
+                        # SADD 10.1.1:v "0..1.:-50.7690301903|-70.7467998635|0|0"
+                        ffv.write("SADD " + strId + ":v \"" + logs + ":" + sLat + "|" + sLon + "|" + str(i) + "|0\"\n")      
+                        # GEOADD 10.1:geoidx -70.7467998635 -50.7690301903 "0..1.:10.1.1|0|9"
+                        ffgeoidx.write(geoidxId + sLon + " " + sLat + " \"" + logs + ":" + strId + "|" + str(i) + "|" + str(n) + "\"\n") 
+                        i = i + 1
+                        
                 else:
                     ss = "missing ocfg|%s"%(ss)
                     
