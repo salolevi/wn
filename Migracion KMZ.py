@@ -3,6 +3,7 @@ import fmeobjects
 import re
 import datetime
 import time
+import math
 # from scipy.spatial.distance import cdist
 
 def unixTimeNow(dt):
@@ -14,6 +15,8 @@ def isPoint(feat):
 def isLine(feat):
     return feat.getAttribute("fme_type") == "fme_line"
     
+def getLogs():
+    return "%d..1."%(unixTimeNow(datetime.datetime.now()))
 
 def checkQuotes(s):
     s = s.replace('"', '')
@@ -23,29 +26,46 @@ def checkQuotes(s):
     s = s.replace("|", " ")
     return s
 
-def connectCO(self, key, other_key, n1, n2):
-    self.ffco.write(f'SADD {key}:co "{self.logs}:{n1}|{other_key}|{n2}"\n')
-    self.ffco.write(f'SADD {other_key}:co "{self.logs}:{n2}|{key}|{n1}"\n')
+def getBoxId(com_id, net_id, box, elementsList):
+    for boxTuple in elementsList['fme_point']:
+        if boxTuple[0] == box:
+            return "%s.%s.%d"%(com_id, net_id, boxTuple[1])
+        
+
+def connectCO(ffco, key, other_key, n1, n2):
+    ffco.write(f'SADD {key}:co "{getLogs()}:{n1}|{other_key}|{n2}"\n')
+    ffco.write(f'SADD {other_key}:co "{getLogs()}:{n2}|{key}|{n1}"\n')
 
 def get_logs():
     now = datetime.now()  # ahora
     unixtime = int(time.mktime(now.timetuple()))
     return f'{unixtime}..1.'
 
-# def getClosest(feature, featureList):
-#     MAX_RANGE = 0.1
-#     featCoord = (feature.getAllCoordinates()[0], feature.getAllCoordinates()[1])
-#     minimums = []
-#     for feat in featureList:
-#         if feat is feature:
-#             continue
-#         coordinates = list(map(lambda x : (x[0], x[1]) ,feat.getAllCoordinates()))
-#         distances = list(map(lambda x : cdist([featCoord], [x], 'euclidean')[0][0], coordinates))
-#         for distance in distances:
-#             if distance <= MAX_RANGE:
-#                 minimums.append([feat.getAttribute("kml_name"), distance])
+def euclidean_dist(point1, point2):
+    squared_diffs = [];
+    for i in range(2):
+        squared_diffs.append((point1[i] - point2[i]) ** 2)
+    
+    return math.sqrt(sum(squared_diffs))
+        
 
-#     print(minimums)
+def getClosest(comp_id, net_id, obj_id, elementsList, cable, ffco):
+    MAX_RANGE = 0.1
+    # vertices = list(map(lambda x: (x[0], x[1]), cable.getAllCoordinates()))
+    key = "%s.%s.%d"%(comp_id, net_id, obj_id)
+    for i in range (cable.numVertices()-1):
+        v1 = cable.getCoordinates(i)
+        v2 = cable.getCoordinates(i+1)
+        total_distance = euclidean_dist(v1, v2)
+        for boxTuple in elementsList['fme_point']:
+            coordinates = (boxTuple[0].getCoordinates(0)[0], boxTuple[0].getCoordinates(0)[1])
+            box_key = "%s.%s.%d"%(comp_id, net_id, boxTuple[1])
+            if (total_distance - (euclidean_dist(v1, coordinates) + euclidean_dist(v2, coordinates)) <= MAX_RANGE):
+                connectCO(ffco, key, box_key, )
+    
+    return None
+    
+
 
 # network types: 1 == troncal, 2 == distribucion, 3 == clientes, 4 == infraestructura, 5 == areas de zonas
 def getOcfg1(fName, fType, fFolder):
@@ -152,10 +172,18 @@ class FeatureProcessor(object):
         self.styleList = []
         self.styleMapList = []
         self.featureTypeList = [ "document", "folder", "placemark", "style", "stylemap"]
+        self.elementsList = {
+            'fme_line': [],
+            'fme_point': []
+        }
+        self.logs = "%d..1."%(unixTimeNow(datetime.datetime.now()))
     
     def input(self, feature):
         fmeFeatureType = feature.getAttribute("fme_feature_type").strip().lower()
-        self.featureList.append(feature)
+        featureTuple = (feature, len(self.featureList))
+        self.featureList.append(featureTuple)
+        if fmeFeatureType == "placemark":
+            self.elementsList[feature.getAttribute("fme_type")].append(featureTuple)
         if fmeFeatureType == "folder":
             self.folderList.append(feature)
         elif fmeFeatureType == "style":
@@ -178,16 +206,15 @@ class FeatureProcessor(object):
         # print(self.folderList)
                 
         for feature in self.featureList:
-            print(feature.getAllCoordinates())
             # A - store kml folders in @folder
-            if (feature.getAttribute("fme_feature_type") == "Placemark"):
-                parent = feature.getAttribute("kml_parent")
+            if (feature[0].getAttribute("fme_feature_type") == "Placemark"):
+                parent = feature[0].getAttribute("kml_parent")
                 fFolder = getFolder(parent, self.folderList)
-                fFeatureType = feature.getAttribute("fme_feature_type")
-                fType = feature.getAttribute("fme_type")
-                fId = feature.getAttribute("kml_id")
-                fName = feature.getAttribute("kml_name") or "No Name"
-                fStyle = feature.getAttribute("kml_style_url").strip("#")
+                fFeatureType = feature[0].getAttribute("fme_feature_type")
+                fType = feature[0].getAttribute("fme_type")
+                fId = feature[0].getAttribute("kml_id")
+                fName = feature[0].getAttribute("kml_name") or "No Name"
+                fStyle = feature[0].getAttribute("kml_style_url").strip("#")
                 ss = "%s|%s|%s|%s|%s|%s"%(fFeatureType, fType, fId, fName, fStyle, fFolder)
                 ocfg = getOcfg1(fName, fType, fFolder)
                 if ocfg != None:
@@ -215,7 +242,7 @@ class FeatureProcessor(object):
                         ffval.write("SADD " + strId + ":val \"" + logs + ":@notI|" + "true" + "|0\"\n")
                         
                     
-                    if isPoint(feature):
+                    if isPoint(feature[0]):
                         ffval.write("SADD " + strId + ":val \"" + logs + ":@oType|" + ocfg[1] + "|0\"\n")
                     else:
                         ffval.write("SADD " + strId + ":val \"" + logs + ":@foType|" + ocfg[1] + "|0\"\n")
@@ -226,10 +253,10 @@ class FeatureProcessor(object):
                     geoidxId = "GEOADD " + companyId + "." + ocfg[2] + ":geoidx "
                     
                     # write vertex
-                    n = feature.numVertices()
+                    n = feature[0].numVertices()
                     i = 0
                     while i < n:
-                        latlon = feature.getCoordinate(i)
+                        latlon = feature[0].getCoordinate(i)
                         sLat = "%.13f"%(latlon[1])
                         sLon = "%.13f"%(latlon[0])
                         # SADD 10.1.1:v "0..1.:-50.7690301903|-70.7467998635|0|0"
